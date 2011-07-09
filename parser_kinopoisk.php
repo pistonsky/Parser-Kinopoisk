@@ -1,14 +1,14 @@
 <?php
-	header('Content-Type: text/html; charset=windows-1251');
+	header('Content-Type: text/html; charset=utf-8');
 
 	include "Snoopy.class.php";
 	$snoopy = new Snoopy;
 	$cache = true;
 	
 	if ( !isset($cache) || !$cache ){
-		$snoopy->maxredirs = 2;
+		$snoopy -> maxredirs = 2;
 		
-		//авторизация, чтобы не банили
+		//Р°РІС‚РѕСЂРёР·Р°С†РёСЏ, С‡С‚РѕР±С‹ РЅРµ Р±Р°РЅРёР»Рё
 		
 		$post_array = array(
 			'shop_user[login]' => 'dimmduh',
@@ -19,11 +19,11 @@
 		
 		$snoopy -> agent = "Mozilla/5.0 (Windows; U; Windows NT 6.1; uk; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13 Some plugins";
 		
-		//отправляем данные для авторизации
+		//РѕС‚РїСЂР°РІР»СЏРµРј РґР°РЅРЅС‹Рµ РґР»СЏ Р°РІС‚РѕСЂРёР·Р°С†РёРё
 		$snoopy->submit('http://www.kinopoisk.ru/level/30/', $post_array);
 		//print $snoopy -> results;
 		
-		//забираем трансформеров
+		//Р·Р°Р±РёСЂР°РµРј С‚СЂР°РЅСЃС„РѕСЂРјРµСЂРѕРІ
 		$snoopy -> fetch('http://www.kinopoisk.ru/level/1/film/452899/');
 		$result = $snoopy -> results;
 		file_put_contents('temp', $result );
@@ -32,31 +32,32 @@
 	}
 	
 	$kinopiskPage = new KinopoiskPage();
-	$kinopiskPage -> setPage( $result );
+	$kinopiskPage -> setPage( iconv('windows-1251' , 'utf-8', $result) );
 	echo $kinopiskPage -> getTitle();
 	echo $kinopiskPage -> getTitleOriginal();
+	echo $kinopiskPage -> getSlogan();
 	p( $kinopiskPage -> getCountry() );
 	
 	$parse = array(
 		'name' =>         '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si',
 		'originalname'=>  '#13px">(.*?)</span>#si',
 		'year' =>         '#<a href="/level/10/m_act%5Byear%5D/([0-9]+)/" title="">#si',
-		'country_title' =>'#страна.*?<a href="/level/10/m_act%5Bcountry%5D/[0-9]+/">(.*?)</a>#si',
-		'country_id' =>   '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">.*?</a>#si',
-		'slogan' =>       '#слоган</td><td style="color: \#555">(.*?)</td></tr>#si',
+		'country_title' =>'#СЃС‚СЂР°РЅР°.*?<a href="/level/10/m_act%5Bcountry%5D/[0-9]+/">(.*?)</a>#si',
+		'country_id' =>   '#СЃС‚СЂР°РЅР°.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">.*?</a>#si',
+		'slogan' =>       '#СЃР»РѕРіР°РЅ</td><td style="color: \#555">(.*?)</td></tr>#si',
 		'actors_main' =>  '#<td class="actor_list">(.*?)</td>#si',
-		'director' =>     '#режиссер</td><td>(.*?)</td></tr>#si',
-		'script' =>       '#сценарий</td><td>(.*?)</td></tr>#si',
-		'producer' =>     '#продюсер</td><td>(.*?)</td></tr>#si',
-		'operator' =>     '#оператор</td><td>(.*?)</td></tr>#si',
-		'composer' =>     '#композитор</td><td>(.*?)</td></tr>#si',
-		'genre' =>        '#жанр</td><td>(.*?)</td></tr>#si',
-		'budget' =>       '#бюджет</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'usa_charges' =>  '#сборы в США</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'world_charges' =>'#сборы в мире</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'rus_charges' =>  '#сборы в России</td>.*?<div style="position: relative">(.*?)</div>#si',
-		'world_premiere'=>'#премьера \(мир\)</td>.*?<a href="/level/80/film/[0-9]+/" title="">(.*?)</a>#si',
-		'rus_premiere' => '#премьера \(РФ\)</td>.*?<a href="/level/8/view/prem/year/[0-9]+/\#[0-9]+">(.*?)</a>#si',
+		'director' =>     '#СЂРµР¶РёСЃСЃРµСЂ</td><td>(.*?)</td></tr>#si',
+		'script' =>       '#СЃС†РµРЅР°СЂРёР№</td><td>(.*?)</td></tr>#si',
+		'producer' =>     '#РїСЂРѕРґСЋСЃРµСЂ</td><td>(.*?)</td></tr>#si',
+		'operator' =>     '#РѕРїРµСЂР°С‚РѕСЂ</td><td>(.*?)</td></tr>#si',
+		'composer' =>     '#РєРѕРјРїРѕР·РёС‚РѕСЂ</td><td>(.*?)</td></tr>#si',
+		'genre' =>        '#Р¶Р°РЅСЂ</td><td>(.*?)</td></tr>#si',
+		'budget' =>       '#Р±СЋРґР¶РµС‚</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+		'usa_charges' =>  '#СЃР±РѕСЂС‹ РІ РЎРЁРђ</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+		'world_charges' =>'#СЃР±РѕСЂС‹ РІ РјРёСЂРµ</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+		'rus_charges' =>  '#СЃР±РѕСЂС‹ РІ Р РѕСЃСЃРёРё</td>.*?<div style="position: relative">(.*?)</div>#si',
+		'world_premiere'=>'#РїСЂРµРјСЊРµСЂР° \(РјРёСЂ\)</td>.*?<a href="/level/80/film/[0-9]+/" title="">(.*?)</a>#si',
+		'rus_premiere' => '#РїСЂРµРјСЊРµСЂР° \(Р Р¤\)</td>.*?<a href="/level/8/view/prem/year/[0-9]+/\#[0-9]+">(.*?)</a>#si',
 		//'dvd' =>          '#dvd">(.*?)</td></tr>#is',
 		//'bluray' =>       '#bluray">(.*?)</td></tr>#is',
 		//'MPAA' =>         '#MPAA</td><td class=\"[\S]{1,100}\"><a href=\'[\S]{1,100}\'><img src=\'/[\S]{1,100}\' height=11 alt=\'(.*?)\' border=0#si',
@@ -83,23 +84,63 @@
 		public function setPage( $content ){
 			$this -> content = $content;
 		}
+                public function getMovieInfo(){
+                    return array(
+                        'title' => $this -> getTitle(),
+                        'slogan' => $this -> getSlogan(),
+                        'country' => $this -> getCountry(),
+                        'year' => $this -> getYear(),
+                        'budget' => $this -> getBudget(),
+                        'director' => $this -> getDirector(),
+                        'producer' => $this -> getProducer(),
+                        'genre' => $this -> getGenre(),
+                    );
+                }
+                
 		public function getTitle(){
 			$pattern = '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si';
 			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
-		}
-		public function getTitleOriginal(){
+                        
 			$pattern = '#13px">(.*?)</span>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
+			preg_match( $pattern, $this -> content, $matches1);
+                        
+			return array(
+                            'rus' => $matches[1],
+                            'original' => $matches1[1],
+                        );
 		}
 		public function getYear(){
 			$pattern = '#<a href="/level/10/m_act%5Byear%5D/([0-9]+)/" title="">#si';
 			preg_match( $pattern, $this -> content, $matches);
 			return $matches[1];
 		}
+		public function getSlogan(){
+			$pattern = '#СЃР»РѕРіР°РЅ</td><td style="color: \#555">&laquo;(.*?)&raquo;</td></tr>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getDirector(){
+			$pattern = '#СЂРµР¶РёСЃСЃРµСЂ</td><td>(.*?)</td></tr>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getProducer(){
+			$pattern = '#РїСЂРѕРґСЋСЃРµСЂ</td><td>(.*?)</td></tr>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getGenre(){
+			$pattern = '#Р¶Р°РЅСЂ</td><td>(.*?)</td></tr>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return str_replace(', ...','', $matches[1] );
+		}
+		public function getBudget(){
+			$pattern = '#Р±СЋРґР¶РµС‚</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return str_replace('&nbsp;',' ', $matches[1]);
+		}
 		public function getCountry(){
-			$pattern = '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">(.*?)</a>#si';
+			$pattern = '#СЃС‚СЂР°РЅР°.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">(.*?)</a>#si';
 			preg_match( $pattern, $this -> content, $matches);
 			return array(
 				'country' => $matches[2],
