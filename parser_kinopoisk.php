@@ -31,6 +31,12 @@
 		$result = file_get_contents('temp');
 	}
 	
+	$kinopiskPage = new KinopoiskPage();
+	$kinopiskPage -> setPage( $result );
+	echo $kinopiskPage -> getTitle();
+	echo $kinopiskPage -> getTitleOriginal();
+	p( $kinopiskPage -> getCountry() );
+	
 	$parse = array(
 		'name' =>         '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si',
 		'originalname'=>  '#13px">(.*?)</span>#si',
@@ -38,6 +44,7 @@
 		'country_title' =>'#страна.*?<a href="/level/10/m_act%5Bcountry%5D/[0-9]+/">(.*?)</a>#si',
 		'country_id' =>   '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">.*?</a>#si',
 		'slogan' =>       '#слоган</td><td style="color: \#555">(.*?)</td></tr>#si',
+		'actors_main' =>  '#<td class="actor_list">(.*?)</td>#si',
 		'director' =>     '#режиссер</td><td>(.*?)</td></tr>#si',
 		'script' =>       '#сценарий</td><td>(.*?)</td></tr>#si',
 		'producer' =>     '#продюсер</td><td>(.*?)</td></tr>#si',
@@ -54,7 +61,7 @@
 		//'bluray' =>       '#bluray">(.*?)</td></tr>#is',
 		//'MPAA' =>         '#MPAA</td><td class=\"[\S]{1,100}\"><a href=\'[\S]{1,100}\'><img src=\'/[\S]{1,100}\' height=11 alt=\'(.*?)\' border=0#si',
 		'time' =>         '#id="runtime">(.*?)</td></tr>#si',
-		'description' =>  '#<span class=\"_reachbanner_\">(.*?)</span>#si',
+		'description' =>  '#<span class=\"_reachbanner_\"><div class=\"brand_words\">(.*?)</div></span>#si',
 		'imdb' =>         '#IMDB:\s(.*?)</div>#si',
 		'kinopoisk' =>    '#text-decoration: none">(.*?)<span#si',
 		'kp_votes' =>     '#<span style=\"font:100 14px tahoma, verdana\">(.*?)</span>#si',
@@ -64,8 +71,66 @@
    $new=array();
    foreach($parse as $index => $value){
 		preg_match($value,$result,$matches);
-		$new[$index] = preg_replace("#<a.+?>(.+?)</a>#is","$1",$matches[1]);
+		
+		$new[ $index ] = $matches[1];
+		$new[ $index ] = result_clear( $new[ $index ], $index );
    }
    print_r( $new );
 	
+	class KinopoiskPage{
+		var $content = '';
+		
+		public function setPage( $content ){
+			$this -> content = $content;
+		}
+		public function getTitle(){
+			$pattern = '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getTitleOriginal(){
+			$pattern = '#13px">(.*?)</span>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getYear(){
+			$pattern = '#<a href="/level/10/m_act%5Byear%5D/([0-9]+)/" title="">#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return $matches[1];
+		}
+		public function getCountry(){
+			$pattern = '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">(.*?)</a>#si';
+			preg_match( $pattern, $this -> content, $matches);
+			return array(
+				'country' => $matches[2],
+				'country_id' => $matches[1],
+			);
+		}
+	}
+	
+	function result_clear( $val, $key = '' ){
+		if ( empty( $val ) || $val == '-' ){
+			$val = '';
+		} else {
+			$pattern = array('&nbsp;', '&laquo;', '&raquo;');
+			$pattern_replace = array(' ','','');
+			$val = str_replace( $pattern, $pattern_replace, $val );
+		}
+		switch ($key) {
+			case 'genre':
+			case 'producer':
+			case 'operator':
+			case 'director':
+			case 'script':
+			case 'composer':
+				$val = str_replace(', ...','', $val );
+				break;
+		}
+		
+		return $val;
+	}
+	
+	function p( $ar ){
+		print_r( $ar );
+	}
 ?>
