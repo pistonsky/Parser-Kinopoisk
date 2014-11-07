@@ -1,152 +1,188 @@
 <?php
-	header('Content-Type: text/html; charset=utf-8');
+require "DB.php";
 
-	include "Snoopy.class.php";
-	$snoopy = new Snoopy;
-	$cache = true;
-	
-	if ( !isset($cache) || !$cache ){
+	$id = $_GET['id'];
+
+	header('Content-Type: text/json; charset=utf-8');
+
+	if ($json = DB::query("SELECT json FROM cache WHERE id=$id")) {
+		echo $json[0]['json'];
+		DB::query("UPDATE cache SET hit=hit+1 WHERE id=$id");
+	} else {
+
+		include "Snoopy.class.php";
+		$snoopy = new Snoopy;
 		$snoopy -> maxredirs = 2;
 		
 		//авторизация, чтобы не банили
-		
 		$post_array = array(
 			'shop_user[login]' => 'dimmduh',
 			'shop_user[pass]' => 'gfhjkm03',
 			'shop_user[mem]' => 'on',
 			'auth' => 'go',
 		);
-		
 		$snoopy -> agent = "Mozilla/5.0 (Windows; U; Windows NT 6.1; uk; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13 Some plugins";
-		
-		//отправляем данные для авторизации
+		// отправляем данные для авторизации
 		$snoopy->submit('http://www.kinopoisk.ru/level/30/', $post_array);
-		//print $snoopy -> results;
 		
-		//забираем трансформеров
-		$snoopy -> fetch('http://www.kinopoisk.ru/level/1/film/452899/');
-		$result = $snoopy -> results;
-		file_put_contents('temp', $result );
-	} else {
-		$result = file_get_contents('temp');
-	}
-	
-	$kinopiskPage = new KinopoiskPage();
-	$kinopiskPage -> setPage( iconv('windows-1251' , 'utf-8', $result) );
-	echo $kinopiskPage -> getTitle();
-	echo $kinopiskPage -> getTitleOriginal();
-	echo $kinopiskPage -> getSlogan();
-	p( $kinopiskPage -> getCountry() );
-	
-	$parse = array(
-		'name' =>         '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si',
-		'originalname'=>  '#13px">(.*?)</span>#si',
-		'year' =>         '#<a href="/level/10/m_act%5Byear%5D/([0-9]+)/" title="">#si',
-		'country_title' =>'#страна.*?<a href="/level/10/m_act%5Bcountry%5D/[0-9]+/">(.*?)</a>#si',
-		'country_id' =>   '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">.*?</a>#si',
-		'slogan' =>       '#слоган</td><td style="color: \#555">(.*?)</td></tr>#si',
-		'actors_main' =>  '#<td class="actor_list">(.*?)</td>#si',
-		'director' =>     '#режиссер</td><td>(.*?)</td></tr>#si',
-		'script' =>       '#сценарий</td><td>(.*?)</td></tr>#si',
-		'producer' =>     '#продюсер</td><td>(.*?)</td></tr>#si',
-		'operator' =>     '#оператор</td><td>(.*?)</td></tr>#si',
-		'composer' =>     '#композитор</td><td>(.*?)</td></tr>#si',
-		'genre' =>        '#жанр</td><td>(.*?)</td></tr>#si',
-		'budget' =>       '#бюджет</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'usa_charges' =>  '#сборы в США</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'world_charges' =>'#сборы в мире</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
-		'rus_charges' =>  '#сборы в России</td>.*?<div style="position: relative">(.*?)</div>#si',
-		'world_premiere'=>'#премьера \(мир\)</td>.*?<a href="/level/80/film/[0-9]+/" title="">(.*?)</a>#si',
-		'rus_premiere' => '#премьера \(РФ\)</td>.*?<a href="/level/8/view/prem/year/[0-9]+/\#[0-9]+">(.*?)</a>#si',
-		//'dvd' =>          '#dvd">(.*?)</td></tr>#is',
-		//'bluray' =>       '#bluray">(.*?)</td></tr>#is',
-		//'MPAA' =>         '#MPAA</td><td class=\"[\S]{1,100}\"><a href=\'[\S]{1,100}\'><img src=\'/[\S]{1,100}\' height=11 alt=\'(.*?)\' border=0#si',
-		'time' =>         '#id="runtime">(.*?)</td></tr>#si',
-		'description' =>  '#<span class=\"_reachbanner_\"><div class=\"brand_words\">(.*?)</div></span>#si',
-		'imdb' =>         '#IMDB:\s(.*?)</div>#si',
-		'kinopoisk' =>    '#text-decoration: none">(.*?)<span#si',
-		'kp_votes' =>     '#<span style=\"font:100 14px tahoma, verdana\">(.*?)</span>#si',
-	);
- 
- 
-   $new=array();
-   foreach($parse as $index => $value){
-		preg_match($value,$result,$matches);
+		$snoopy -> fetch('http://www.kinopoisk.ru/film/' . $id);
+		$main_page = $snoopy -> results;
+		$main_page = iconv('windows-1251' , 'utf-8', $main_page);
+
+		// страница с трейлерами
+		$snoopy -> fetch('http://www.kinopoisk.ru/film/' . $id . '/video/type/1/');
+		$trailers_page = $snoopy -> results;
+		$trailers_page = iconv('windows-1251' , 'utf-8', $trailers_page);
 		
-		$new[ $index ] = $matches[1];
-		$new[ $index ] = result_clear( $new[ $index ], $index );
-   }
-   print_r( $new );
-	
-	class KinopoiskPage{
-		var $content = '';
-		
-		public function setPage( $content ){
-			$this -> content = $content;
+		$parse = array(
+			'name' =>         '#<h1.*?class="moviename-big".*?>(.*?)</h1>#si',
+			'originalname'=>  '#<span itemprop="alternativeHeadline">(.*?)</span>#si',
+			'year' =>         '#год</td>.*?<a[^>]*>(.*?)</a>#si',
+			'country_title' =>'#страна</td>.*?<td[^>]*>(.*?)</td>#si',
+			'slogan' =>       '#слоган</td><td[^>]*>(.*?)</td></tr>#si',
+			'actors_main' =>  '#В главных ролях:</h4>[^<]*<ul>(.*?)</ul>#si',
+			'actors_voices' =>'#Роли дублировали:</h4>[^<]*<ul>(.*?)</ul>#si',
+			'director' =>     '#режиссер</td><td[^>]*>(.*?)</td></tr>#si',
+			'script' =>       '#сценарий</td><td[^>]*>(.*?)</td></tr>#si',
+			'producer' =>     '#продюсер</td><td[^>]*>(.*?)</td></tr>#si',
+			'operator' =>     '#оператор</td><td[^>]*>(.*?)</td></tr>#si',
+			'composer' =>     '#композитор</td><td[^>]*>(.*?)</td></tr>#si',
+			'genre' =>        '#жанр</td><td[^>]*>[^<]*<span[^>]*>(.*?)</span>#si',
+			'budget' =>       '#бюджет</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+			'usa_charges' =>  '#сборы в США</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+			'world_charges' =>'#сборы в мире</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si',
+			'rus_charges' =>  '#сборы в России</td>.*?<div style="position: relative">(.*?)</div>#si',
+			'world_premiere'=>'#премьера \(мир\)</td>[^<]*<td[^>]*>.*?<a[^>]*>(.*?)</a>#si',
+			'rus_premiere' => '#премьера \(РФ\)</td>[^<]*<td[^>]*>.*?<a[^>]*>(.*?)</a>#si',
+			'time' =>         '#id="runtime">(.*?)</td></tr>#si',
+			'description' =>  '#<span class=\"_reachbanner_\"><div class=\"brand_words\"[^>]*>(.*?)</div></span>#si',
+			'imdb' =>         '#IMDB:\s(.*?)</div>#si',
+			'kinopoisk' =>    '#<div id="block_rating".*?<span class="rating_ball">(.*?)</span>#si',
+			'kp_votes' =>     '#<span style=\"font:100 14px tahoma, verdana\">(.*?)</span>#si',
+		);
+
+		$trailers_parse = array(
+			'url' =>     '#<a href="/getlink\.php[^"]*?link=([^"]*)" class="continue">(.*?)</a>#si',
+			'trailer_page' => '#<a href="([^"]*)" class="all"#si',
+			'html'	=> '#<!-- ролик -->([\w\W]*?)<!-- \/ролик -->#si'
+		);
+	 
+	 
+		$new=array();
+
+		foreach($parse as $index => $value){
+			if (preg_match($value,$main_page,$matches)) {
+				if (in_array($index, array('actors_voices','actors_main'))) { // здесь нужен дополнительный парсинг
+					if (preg_match_all('#<li itemprop="actors"><a href="/name/(\d+)/">(.*?)</a></li>#si',$matches[1],$matches2,PREG_SET_ORDER)) {
+						$new[$index] = array();
+						foreach ($matches2 as $match) {
+							if (strip_tags($match[2]) != '...') $new[$index][] = array('name'=>strip_tags($match[2]),'id'=>$match[1]);
+						}
+					}
+				} else if (in_array($index, array(
+												'director',
+												'script',
+												'producer',
+												'operator',
+												'composer',
+											))) {
+					if (preg_match_all('#<a href="/name/(\d+)/">(.*?)</a>#si',$matches[1],$matches2,PREG_SET_ORDER)) {
+						$new[$index] = array();
+						foreach ($matches2 as $match) {
+							if (strip_tags($match[2]) != '...') $new[$index][] = array('name'=>strip_tags($match[2]),'id'=>$match[1]);
+						}
+					}
+				} else if ($index == 'genre') {
+					if (preg_match_all('#<a href="/lists/.*?/(\d+)/">(.*?)</a>#si',$matches[1],$matches2,PREG_SET_ORDER)) {
+						$new[$index] = array();
+						foreach ($matches2 as $match) {
+							if (strip_tags($match[2]) != '...') $new[$index][] = array('title'=>strip_tags($match[2]),'id'=>$match[1]);
+						}
+					}
+				} else if ($index == 'poster_url') {
+					$new[ $index ] = 'http://www.kinopoisk.ru' . $matches[1];
+				} else {
+					$new[ $index ] = preg_replace('#\\n\s*#si', '', html_entity_decode(strip_tags($matches[1]),ENT_COMPAT | ENT_HTML401, 'UTF-8'));
+					$new[ $index ] = result_clear( $new[ $index ], $index );
+				}			
+			}
 		}
-                public function getMovieInfo(){
-                    return array(
-                        'title' => $this -> getTitle(),
-                        'slogan' => $this -> getSlogan(),
-                        'country' => $this -> getCountry(),
-                        'year' => $this -> getYear(),
-                        'budget' => $this -> getBudget(),
-                        'director' => $this -> getDirector(),
-                        'producer' => $this -> getProducer(),
-                        'genre' => $this -> getGenre(),
-                    );
-                }
-                
-		public function getTitle(){
-			$pattern = '#<h1 style=\"margin: 0; padding: 0\" class="moviename-big">(.*?)</h1>#si';
-			preg_match( $pattern, $this -> content, $matches);
-                        
-			$pattern = '#13px">(.*?)</span>#si';
-			preg_match( $pattern, $this -> content, $matches1);
-                        
-			return array(
-                            'rus' => $matches[1],
-                            'original' => $matches1[1],
-                        );
+
+		$new['poster_url'] = 'http://www.kinopoisk.ru/images/film_big/' . $id . '.jpg';
+
+		$url = array();
+		$trailer_page = array();
+		$all_trailers = array();
+
+		foreach($trailers_parse as $index => $regex){
+			if ($index == 'html') {
+				if (preg_match_all($regex, $trailers_page, $matches, PREG_SET_ORDER)) {
+					foreach ($matches as $match) { // по всем трейлерам (в каждом по нескольку видео в разном качестве)
+						
+						if (preg_match('#<tr>[\w\W]*?<a href="[^"]*" class="all">(.*?)</a>\s*<table[\w\W]*?</table>[\w\W]*?<tr>[\w\W]*?<table[\w\W]*?</table>[\w\W]*?<tr>[\w\W]*?<table[\w\W]*?</td>\s*<td>([\w\W]*?)</table>[\w\W]*?<td[\w\W]*?<td>([\w\W]*?)</table>#si', $match[1], $title_sd_hd_matches)) { // название, стандартное качество и HD
+							$trailer_family = array();
+							$trailer_family['title'] = $title_sd_hd_matches[1];
+							// SD качество
+							$sd = array();
+							if (preg_match_all('#<a href="/getlink\.php[^"]*?link=([^"]*)" class="continue">(.*?)</a>#si', $title_sd_hd_matches[2], $single_videos, PREG_SET_ORDER)) {
+								foreach ($single_videos as $single_video){
+									$sd[] = array(
+										'url' => $single_video[1],
+										'quality' => strip_tags($single_video[2])
+									);
+								}
+							}
+							$trailer_family['sd'] = $sd;
+							// HD качество
+							$hd = array();
+							if (preg_match_all('#<a href="/getlink\.php[^"]*?link=([^"]*)" class="continue">(.*?)</a>#si', $title_sd_hd_matches[3], $single_videos, PREG_SET_ORDER)) {
+								foreach ($single_videos as $single_video) {
+									$hd[] = array(
+										'url' => $single_video[1],
+										'quality' => strip_tags($single_video[2])
+									);
+								}
+							}
+							$trailer_family['hd'] = $hd;
+							$all_trailers[] = $trailer_family;
+						}
+						
+					}
+				}
+			} else if (preg_match_all($regex,$trailers_page,$matches,PREG_SET_ORDER)) {
+				foreach ($matches as $match) {
+					${$index}[] = $match[1];
+				}
+			}
 		}
-		public function getYear(){
-			$pattern = '#<a href="/level/10/m_act%5Byear%5D/([0-9]+)/" title="">#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
+
+		// переходим по ссылке на страницу главного трейлера и качаем ссылки на видео оттуда
+		$main_trailer_url = array();
+		if (isset($trailer_page[0])) {
+			$snoopy -> fetch('http://www.kinopoisk.ru' . $trailer_page[0]);
+			$main_trailer_page = $snoopy -> results;
+			$main_trailer_page = iconv('windows-1251' , 'utf-8', $main_trailer_page);
+			file_put_contents('main_trailer_'.$id.'.html', $main_trailer_page );			
+
+			if (preg_match_all('#<a href="/getlink\.php[^"]*?link=([^"]*)" class="continue">(.*?)</a>#si',$main_trailer_page,$matches,PREG_SET_ORDER)) {
+				foreach ($matches as $match) {
+					$main_trailer_url[] = array('description'=>strip_tags($match[2]),'url'=>$match[1]);
+				}
+			}		
 		}
-		public function getSlogan(){
-			$pattern = '#слоган</td><td style="color: \#555">&laquo;(.*?)&raquo;</td></tr>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
-		}
-		public function getDirector(){
-			$pattern = '#режиссер</td><td>(.*?)</td></tr>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
-		}
-		public function getProducer(){
-			$pattern = '#продюсер</td><td>(.*?)</td></tr>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return $matches[1];
-		}
-		public function getGenre(){
-			$pattern = '#жанр</td><td>(.*?)</td></tr>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return str_replace(', ...','', $matches[1] );
-		}
-		public function getBudget(){
-			$pattern = '#бюджет</td>.*?<a href="/level/85/film/[0-9]+/" title="">(.*?)</a>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return str_replace('&nbsp;',' ', $matches[1]);
-		}
-		public function getCountry(){
-			$pattern = '#страна.*?<a href="/level/10/m_act%5Bcountry%5D/([0-9]+)/">(.*?)</a>#si';
-			preg_match( $pattern, $this -> content, $matches);
-			return array(
-				'country' => $matches[2],
-				'country_id' => $matches[1],
-			);
-		}
+
+		$new['trailer_url'] = $main_trailer_url[count($main_trailer_url)-1]['url'];
+		$new['trailers'] = $all_trailers;
+
+		$json = json_encode(array(
+				'movie' => $new,
+			)
+		);
+
+		echo $json;
+
+		DB::query("INSERT IGNORE INTO cache SET id=$id, json='".str_replace(array("\\","'"), array("\\\\","\\'"), $json)."'");
+
 	}
 	
 	function result_clear( $val, $key = '' ){
